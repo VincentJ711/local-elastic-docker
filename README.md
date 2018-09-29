@@ -63,6 +63,7 @@ const create_elastic_container = async image_name => {
 ```
 const create_kibana_container = async image_name => {
   const container = new led.Container({
+    cluster_name: 'kibana_cluster',
     hsize: 500,
     image: image_name,
     kibana_port: 6001,
