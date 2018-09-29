@@ -11,7 +11,10 @@ This package utilizes `curl` and `docker` heavily. If you do not install them, t
 `npm install local-elastic-docker`
 
 ### Examples
+If you would like to run this example (recommended), copy/paste the file in ./examples and run it, ie `node readme`. also make sure you delete your containers when your not using them to free your cpu/ram.
+
 #### creating an Elasticsearch image
+you can view your images with `docker images`
 
 ```
 const led = require('local-elastic-docker');
@@ -39,6 +42,7 @@ const create_kibana_image = async image_name => {
 ```
 
 #### creating an Elasticsearch container
+you can view your containers with `docker ps -a`
 
 ```
 const create_elastic_container = async image_name => {
