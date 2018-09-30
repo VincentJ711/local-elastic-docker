@@ -281,6 +281,18 @@ The following tasks are executed in the order you see.
 - `prototype.create(): IContainerCreateTasks` creates the container by executing all the tasks in the returned tasks object.
 
 ### helpers
+- `ls_containers(fmt?: string)` prints the containers made by this package. you can pass in your own docker format string to override the default. see [here](https://docs.docker.com/engine/reference/commandline/ps/#formatting)
+
+  ```
+  await led.helpers.ls_containers('table {{ .ID }}\t {{.Status}}');
+  ```
+
+- `ls_images(fmt?: string)` prints the images made by this package. you can pass in your own docker format string to override the default. see [here](https://docs.docker.com/engine/reference/commandline/images/#format-the-output)
+
+  ```
+  await led.helpers.ls_images('table {{ .ID }}\t {{.Size}}');
+  ```
+
 - `remove_containers(verbose?: boolean[false])` removes all containers w/ label=`led.elastic_image_label`
 
 - `remove_dangling_images(verbose?: boolean[false])` removes all dangling images. It just executes `docker rmi -f $(docker images --quiet --filter "dangling=true")`
