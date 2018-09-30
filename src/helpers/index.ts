@@ -3,7 +3,7 @@ import { Utils } from '../utils';
 
 export const helpers = {
   ls_containers: async(fmt?: string) => {
-    fmt = fmt ? `"${fmt}"` : '"table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}\t{{.Image}}"';
+    fmt = fmt ? `"${fmt}"` : '"table {{.Names}}\t{{.Status}}\t{{.RunningFor}}\t{{.Image}}"';
     const cmd = `docker ps -a --filter label=${elastic_image_label} -q --format ${fmt}`;
     const res = <string> await Utils.exec(cmd);
 
