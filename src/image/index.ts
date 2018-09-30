@@ -19,7 +19,7 @@ export class Image implements IImage {
   es_version: string;
   kibana: boolean;
   name: string;
-  verbose?: boolean;
+  verbose: boolean;
   private _dockerfile: string;
 
   constructor(v: IImage) {

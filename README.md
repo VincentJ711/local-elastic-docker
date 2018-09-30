@@ -293,15 +293,15 @@ The following tasks are executed in the order you see.
   await led.helpers.ls_images('table {{ .ID }}\t {{.Size}}');
   ```
 
-- `remove_containers(verbose?: boolean[false])` removes all containers w/ label=`led.elastic_image_label`
+- `remove_containers(verbose?: boolean[false])` removes all containers this package has made.
 
 - `remove_dangling_images(verbose?: boolean[false])` removes all dangling images. It just executes `docker rmi -f $(docker images --quiet --filter "dangling=true")`
 
-- `remove_images(verbose?: boolean[false])` removes all images w/ label=`led.elastic_image_label`.
+- `remove_images(verbose?: boolean[false])` removes all images this package has made.
 
-- `start_containers(verbose?: boolean[false])` starts all containers w/ label=`led.elastic_image_label`.
+- `start_containers(verbose?: boolean[false])` starts all containers this package has made.
 
-- `stop_containers(verbose?: boolean[false])` stops all containers w/ label=`led.elastic_image_label`.
+- `stop_containers(verbose?: boolean[false])` stops all containers this package has made.
 
 ## additional notes
-- if you're new to Docker, make sure you stop or delete the containers this package creates when you're not using them. You don't want these containers eating up your ram/cpu. To do this, execute a `docker ps -a` and get the container names you created and then `docker stop <name1> <name2>` or `docker rm -f <name1> <name2>`
+- if you're new to Docker, make sure you stop or delete the containers this package creates when you're not using them. You don't want these containers eating up your ram/cpu. To do this, execute a `docker ps -a` and get the container names you created and then `docker stop <name1> <name2>` or `docker rm -f <name1> <name2>` or you can just use the appropriate method on `led.helpers`.
