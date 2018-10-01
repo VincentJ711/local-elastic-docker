@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 
 export class Utils {
   static exec(cmd: string, verbose?: boolean) {
@@ -16,6 +16,18 @@ export class Utils {
         proc.stderr.pipe(process.stderr);
       }
     });
+  }
+
+  static exec_sync(cmd: string, verbose?: boolean) {
+    const stdio = verbose ? [0, 1, 2] : undefined;
+    const res = execSync(cmd, { maxBuffer: 1024 * 100000, stdio: stdio });
+    if (res === null) {
+      return undefined;
+    } else if (res instanceof Buffer) {
+      return res.toString();
+    } else {
+      return res;
+    }
   }
 
   static is_array(v) {
