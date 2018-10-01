@@ -14,7 +14,7 @@ This package utilizes `curl` and `docker` heavily. If you do not install them, t
 If you would like to run this example (recommended), copy/paste the file in ./examples and run it, ie `node readme`. also make sure you delete your containers when your not using them to free your cpu/ram.
 
 #### creating an Elasticsearch image
-you can view your images with `docker images`
+you can view your images with `docker images`. this image is only recommended if you do not want Kibana.
 
 ```
 const led = require('local-elastic-docker');
@@ -29,7 +29,7 @@ const create_elastic_image = async image_name => {
 ```
 
 #### creating a Kibana image
-
+This is the preferred image as it has Elasticsearch and Kibana installed.
 ```
 const create_kibana_image = async image_name => {
   await (new led.Image({
@@ -302,6 +302,9 @@ The following tasks are executed in the order you see.
 - `start_containers(verbose?: boolean[false])` starts all containers this package has made.
 
 - `stop_containers(verbose?: boolean[false])` stops all containers this package has made.
+
+## supported versions of Elasticsearch/Kibana
+Currently, 5.x and 6.x should work. When future major versions are released, i'll do my best to keep up to date.
 
 ## additional notes
 - if you're new to Docker, make sure you stop or delete the containers this package creates when you're not using them. You don't want these containers eating up your ram/cpu. To do this, execute a `docker ps -a` and get the container names you created and then `docker stop <name1> <name2>` or `docker rm -f <name1> <name2>` or you can just use the appropriate method on `led.helpers`.
