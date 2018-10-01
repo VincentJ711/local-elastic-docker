@@ -21,24 +21,35 @@ export class Image implements IImage {
   name: string;
   verbose: boolean;
   private _dockerfile: string;
+  private _kibana_entry?: string;
 
   constructor(v: IImage) {
     this._set_es_version(v);
     this._set_kibana(v);
     this._set_name(v);
     this._set_verbose(v);
+    this._set_kibana_entry_file();
     this._create_dockerfile();
   }
 
   async create() {
     const cmd = `docker build -t ${this.name} . -f-<<EOF\n${this._dockerfile}\nEOF`;
+    const cwd = process.cwd();
 
     if (this.verbose) {
       console.log(`creating image ${this.name} from the following dockerfile:\n`);
       console.log(this._dockerfile + '\n');
     }
 
-    await Utils.exec(cmd, this.verbose);
+    // docker build requires u be in the directory u copy files from...
+    try {
+      process.chdir(__dirname);
+      Utils.exec_sync(cmd, this.verbose);
+      process.chdir(cwd);
+    } catch (e) {
+      process.chdir(cwd);
+      throw e;
+    }
 
     if (this.verbose) {
       console.log(`\nimage ${this.name} created!`);
@@ -48,15 +59,18 @@ export class Image implements IImage {
   private _create_dockerfile() {
     const base_url = 'https://artifacts.elastic.co/downloads/kibana/kibana';
     const klines = this.kibana ?
-        `RUN wget -q ${base_url}-${this.es_version}-x86_64.rpm\n` +
-        `RUN rpm --install kibana-${this.es_version}-x86_64.rpm\n` +
-        `LABEL ${kibana_image_label}="whatever"\n` : '';
-    const kcmd = this.kibana ? ' & kibana/bin/kibana --server.host=0.0.0.0' : '';
+        `LABEL ${kibana_image_label}="whatever"\n` +
+        'WORKDIR /usr/share/kibana\n' +
+        `RUN curl -Ls ${base_url}-${this.es_version}-linux-x86_64.tar.gz | ` +
+            'tar --strip-components=1 -zxf -\n' +
+        `COPY ${this._kibana_entry} /usr/local/bin/kentry.sh\n` +
+        'RUN chmod 777 /usr/local/bin/kentry.sh\n' : '';
+    const kcmd = this.kibana ? ' & /usr/local/bin/kentry.sh --server.host=0.0.0.0' : '';
 
     this._dockerfile =
         `FROM docker.elastic.co/elasticsearch/elasticsearch:${this.es_version}\n` +
-        klines +
         `LABEL ${elastic_image_label}="whatever"\n` +
+        klines +
         'WORKDIR /usr/share\n' +
         'CMD /usr/local/bin/docker-entrypoint.sh eswrapper' + kcmd;
   }
@@ -73,6 +87,17 @@ export class Image implements IImage {
       throw Error('not a boolean.');
     }
     this.kibana = !!v.kibana;
+  }
+
+  private _set_kibana_entry_file() {
+    if (this.es_version[0] === '5') {
+      this._kibana_entry = 'kentry-5_x';
+    } else if (this.es_version[0] === '6') {
+      this._kibana_entry = 'kentry-6_x';
+    } else {
+      throw Error(`kibana ${this.es_version} not supported! ` +
+          'a startup script still has to be added for this major version.');
+    }
   }
 
   private _set_name(v: IImage) {
