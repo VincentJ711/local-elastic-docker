@@ -34,22 +34,14 @@ export class Image implements IImage {
 
   async create() {
     const cmd = `docker build -t ${this.name} . -f-<<EOF\n${this._dockerfile}\nEOF`;
-    const cwd = process.cwd();
 
     if (this.verbose) {
       console.log(`creating image ${this.name} from the following dockerfile:\n`);
       console.log(this._dockerfile + '\n');
     }
 
-    // docker build requires u be in the directory u copy files from...
-    try {
-      process.chdir(__dirname);
-      Utils.exec_sync(cmd, this.verbose);
-      process.chdir(cwd);
-    } catch (e) {
-      process.chdir(cwd);
-      throw e;
-    }
+    // docker build requires u be in the directory u copy files from
+    await Utils.exec(cmd, this.verbose, __dirname);
 
     if (this.verbose) {
       console.log(`\nimage ${this.name} created!`);
