@@ -1,4 +1,4 @@
-import { exec, execSync } from 'child_process';
+import { exec } from 'child_process';
 
 export class Utils {
   static exec(cmd: string, verbose?: boolean, wd?: string) {
