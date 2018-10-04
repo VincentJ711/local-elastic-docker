@@ -16,6 +16,7 @@ export interface IContainer {
   hsize: number;
   image: string;
   ingest?: boolean;
+  khsize?: number;
   kibana_port?: number;
   master?: boolean;
   name: string;
@@ -36,6 +37,7 @@ export class Container implements IContainer {
   hsize: number;
   image: string;
   ingest: boolean;
+  khsize: number;
   kibana_port?: number;
   master: boolean;
   name: string;
@@ -55,6 +57,7 @@ export class Container implements IContainer {
     this._set_hsize(v);
     this._set_image(v);
     this._set_ingest(v);
+    this._set_khsize(v);
     this._set_kibana_port(v);
     this._set_master(v);
     this._set_name(v);
@@ -116,11 +119,11 @@ export class Container implements IContainer {
 
   private _set_hsize(v: IContainer) {
     if (!Utils.is_integer(v.hsize)) {
-      throw Error('not an integer');
+      throw Error('es heap size not an integer');
     } else if ((v.hsize < 100) || (v.hsize > 31000)) {
-      throw Error('heap size out of range.');
+      throw Error('es heap size out of range.');
     } else if ((v.hsize * 1000000) >= freemem()) {
-      throw Error('requested heap size is too large for this system.');
+      throw Error('requested es heap size is too large for this system.');
     }
     this.hsize = v.hsize;
   }
@@ -140,6 +143,20 @@ export class Container implements IContainer {
     } else {
       this.ingest = false;
     }
+  }
+
+  private _set_khsize(v: IContainer) {
+    const val: any = v.khsize;
+    if (Utils.is_defined(val)) {
+      if (!Utils.is_integer(val)) {
+        throw Error('kibana heap size not an integer');
+      } else if (val < 100) {
+        throw Error('kibana heap size out of range.');
+      } else if ((val * 1000000) >= freemem()) {
+        throw Error('requested kibana heap size is too large for this system.');
+      }
+    }
+    this.khsize = val ? val : 512;
   }
 
   private _set_kibana_port(v: IContainer) {

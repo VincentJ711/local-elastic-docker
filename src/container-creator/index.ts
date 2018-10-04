@@ -147,6 +147,7 @@ export class ContainerCreator {
   private _merge_env_vars() {
     const uniq = {
       ES_JAVA_OPTS: `-Xms${this._c.hsize}m -Xmx${this._c.hsize}m`,
+      NODE_OPTIONS: `--max-old-space-size=${this._c.khsize}`,
       'node.data': `${!!this._c.data}`,
       'node.ingest': `${!!this._c.ingest}`,
       'node.master': `${!!this._c.master}`

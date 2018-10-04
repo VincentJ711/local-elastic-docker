@@ -216,6 +216,7 @@ The following tasks are executed in the order you see.
     port: number;
     kibana_port?: number;
     hsize: number;
+    khsize?: number;
     master?: boolean;
     data?: boolean;
     ingest?: boolean;
@@ -235,6 +236,7 @@ The following tasks are executed in the order you see.
   - `port` The exposed port to access Elasticsearch.
   - `kibana_port` The exposed port to access Kibana. If no port is given and a Kibana image was passed to this constructor, an error will be thrown.
   - `hsize` heap size you want to give to the Elasticsearch node in MB. This is equivalent to the value in ES_JAVA_OPTS.
+  - `khsize[512]` max heap size for the kibana node in MB. its set by passing `NODE_OPTIONS=--max-old-space-size={value}` as an environment variable to the `docker create` command.
   - `master[true]` Is this a master node?
   - `data[true]` Is this a data node?
   - `ingest[false]` Is this an ingest node?
