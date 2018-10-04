@@ -162,7 +162,7 @@ export class ContainerCreator {
 
     this._c.env.forEach(e => {
       const tokens = e.split('=');
-      uniq[tokens[0]] = tokens[1];
+      uniq[tokens[0]] = tokens.slice(1).join('=');
     });
 
     return Object.keys(uniq).map(k => `'${k}=${uniq[k]}'`);

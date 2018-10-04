@@ -106,7 +106,7 @@ export class Container implements IContainer {
       v.env.forEach(s => {
         if (!Utils.is_string(s)) {
           throw Error('invalid environment string');
-        } else if (s.split('=').length !== 2) {
+        } else if (s.indexOf('=') < 0) {
           throw Error(s + ' has an invalid env format!');
         }
       });
