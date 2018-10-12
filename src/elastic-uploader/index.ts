@@ -4,6 +4,11 @@ import { Utils } from '../utils';
 
 const elastic_uploader = {
   kso: (container: Container, kso: any[], verbose?: boolean) => {
+    // api call will throw if u give it an empty array, so resolve now.
+    if (!kso.length) {
+      return Promise.resolve([]);
+    }
+
     // api doesnt allow the updated_at field to exist when creating a saved object.
     kso.forEach(el => delete el.updated_at);
 
