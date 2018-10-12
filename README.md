@@ -79,7 +79,7 @@ const create_elastic_container = async image_name => {
 
 ```
 const create_kibana_container = async image_name => {
-  const container = new led.Container({
+  const container = new led.ChildContainer({
     cluster_name: 'kibana_cluster',
     hsize: 500,
     image: image_name,
@@ -109,6 +109,15 @@ const combo = async() => {
 };
 
 combo();
+```
+
+### fetching the Containers later
+
+```
+const fetch_containers = async() => {
+  const containers = await led.Container.fetch_all();
+  console.log(containers);
+};
 ```
 
 ## API overview
@@ -168,7 +177,7 @@ The following tasks are executed in the order you see when a container is being 
 - `kibana_ready` sends curl requests to `localhost:${kibana_port}` and waits for status 200. This will never reject. It will keep sending requests until it gets status 200.
 - `kso_upload` uploads any Kibana saved_objects given in `ContainerCreateOpts` to the container if it's a Kibana container.
   - if a saved_object is erroneous this will reject w/ that error.
-  - else it will resolve w/ the created saved_object.
+  - else it will resolve w/ the created saved_objects.
 - `scripts_upload` uploads any scripts given in `ContainerCreateOpts` to the container.
 
   - if two scripts are uploaded successfully, this task will resolve w/ something like (standard Elasticsearch response)
@@ -230,7 +239,7 @@ The following tasks are executed in the order you see when a container is being 
 }
 ```
 - `clear_volume_dir[false]` If a volume directory was given to the `ChildContainer`, do you want it cleared? This should be set to true, but it's your filesystem, so you need to tell this script to clear the directory.
-- `kso[empty array]` an array of [Kibana saved_objects](https://www.elastic.co/guide/en/kibana/current/saved-objects-api.html). use this when you want to create the Kibana instance for the container w/ charts/dashboards you've previously saved from another Kibana instance. To fetch the saved objects from a currently running Kibana instance, call its  `Container.prototype.kibana_saved_objects` method. A saved_objects array looks like:
+- `kso[empty array]` an array of [Kibana saved_objects](https://www.elastic.co/guide/en/kibana/current/saved-objects-api.html). use this when you want to create the Kibana instance for the container w/ charts/dashboards you've previously saved from another Kibana instance. To fetch the saved_objects from a currently running Kibana instance, call its  `Container.prototype.kibana_saved_objects` method. A saved_objects array looks like:
 
   ```
   [
@@ -313,7 +322,7 @@ The following tasks are executed in the order you see when a container is being 
   - `master[true]` Is this a master node?
   - `data[true]` Is this a data node?
   - `ingest[false]` Is this an ingest node?
-  - `volume_dir` A relative/absolute path to a directory you want as volume for the Elasticsearch cluster.
+  - `volume_dir[undefined]` A relative/absolute path to a directory you want as volume for the Elasticsearch cluster.
   - `env[empty array]` This is an array of environment variables along with their values you want set on the container. This is super valuable when you want to setup monitoring for your Kibana instance (monitoring requires the node to be an ingest node). All Kibana/Elasticsearch Docker environment variables are supported. If you provide an environment variable that is the same as one of the Elasticsearch specific options above (like data/master/ingest node/heap size), it will have precedence. For example:
 
     ```
@@ -370,7 +379,7 @@ The following tasks are executed in the order you see when a container is being 
 
 - `prototype.cluster_state(verbose?: boolean[false]): Promise<string | undefined>` curls inside the container on port 9200 and asks for its cluster health state. If it succeeds, it resolves with `green | yellow | red`. If it fails or gets no response, it resolves with `undefined`.
 - `prototype.kibana_status(verbose?: boolean[false]): Promise<number | undefined>` curls inside the container on port 5601 and checks the http status code. If it succeeds, it resolves with a number (like 200). If it fails or gets no response, it resolves with `undefined`.
-- `.prototype.kibana_saved_objects(verbose?: boolean[false]): []` curls inside the container @ `:5601/api/saved_objects/_find` and returns the saved_objects array. will throw if this isn't a Kibana container.
+- `.prototype.kibana_saved_objects(verbose?: boolean[false]): []` curls inside the container @ `:5601/api/saved_objects/_find` and returns the saved_objects array. will throw if this isn't a Kibana container. I believe this api endpoint was added in 6.4, so don't call this if your image was for an es version < 6.4. (see [here](https://www.elastic.co/guide/en/kibana/master/saved-objects-api.html))
 
 ### helpers
 - `ls_containers(fmt?: string): Promise` prints the containers made by this package. you can pass in your own docker format string to override the default. see [here](https://docs.docker.com/engine/reference/commandline/ps/#formatting)
