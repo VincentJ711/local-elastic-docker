@@ -1,14 +1,19 @@
 import { emptyDir, ensureDir } from 'fs-extra';
+import { ChildContainer } from '../child-container';
 import { Container } from '../container';
+import { ContainerCreateOpts } from '../container-create-opts';
+import { elastic_uploader } from '../elastic-uploader';
 import { elastic_image_label, kibana_image_label } from '../image';
 import { EndTask, FullTask, IContainerCreateTasks } from '../tasks';
 import { Utils } from '../utils';
 
 export class ContainerCreator {
-  private _c: Container;
+  private c: ChildContainer;
+  private o: ContainerCreateOpts;
 
-  constructor(v: Container) {
-    this._c = v;
+  constructor(container: ChildContainer, opts: ContainerCreateOpts) {
+    this.c = container;
+    this.o = opts;
   }
 
   create() {
@@ -19,6 +24,7 @@ export class ContainerCreator {
       elastic_ready: new FullTask(),
       image_check: new FullTask(),
       kibana_ready: new FullTask(),
+      kso_upload: new FullTask(),
       main: new EndTask(),
       scripts_upload: new FullTask(),
       sm_upload: new FullTask(),
@@ -30,22 +36,22 @@ export class ContainerCreator {
         await this._check_image(tasks.image_check);
         await this._clear_volume_dir(tasks.volume_rm);
         await this._remove_container_with_my_name(tasks.container_rm);
-        await this._create_container(tasks.container_mk);
+        const container = await this._create_container(tasks.container_mk);
         await this._start(tasks.container_start);
-        await this._wait_for_elastic(tasks.elastic_ready);
-        await this._wait_for_kibana(tasks.kibana_ready);
-        await this._upload_scripts(tasks.scripts_upload);
-        await this._upload_sm(tasks.sm_upload);
+        await this._wait_for_elastic(tasks.elastic_ready, container);
+        await this._wait_for_kibana(tasks.kibana_ready, container);
+        await this._upload_kso(tasks.kso_upload, container);
+        await this._upload_scripts(tasks.scripts_upload, container);
+        await this._upload_sm(tasks.sm_upload, container);
 
-        if (this._c.verbose) {
-          const kmsg = this._c.has_kibana_image ?
-              `and kibana @ localhost:${this._c.kibana_port}` : '';
+        if (this.o.verbose) {
+          const kmsg = this.c.kibana ? `and kibana @ localhost:${this.c.kibana_port}` : '';
 
-          console.log(`Setup complete for container ${this._c.name}! ` +
-            `Visit elastic @ localhost:${this._c.port} ${kmsg}`);
+          console.log(`Setup complete for container ${this.c.name}! ` +
+              `Visit elastic @ localhost:${this.c.port} ${kmsg}`);
         }
 
-        tasks.main.end_resolve_cb(this);
+        tasks.main.end_resolve_cb(container);
       } catch (e) {
         tasks.main.end_reject_cb(e);
       }
@@ -65,20 +71,18 @@ export class ContainerCreator {
       this._stop_at_task(task, err);
     }
 
-    if (this._c.verbose) {
-      console.log(`verifying image ${this._c.image} was created by this package.`);
+    if (this.o.verbose) {
+      console.log(`verifying image ${this.c.image} was created by this package.`);
     }
 
     if (labels.indexOf(elastic_image_label) < 0) {
-      const err = new Error(`${this._c.image} exists but its not an ` +
+      const err = new Error(`${this.c.image} exists but its not an ` +
           'image this package created.');
       this._stop_at_task(task, err);
-    } else if (!this._c.kibana_port && (labels.indexOf(kibana_image_label) > -1)) {
-      const err = new Error(`'${this._c.image}' is a kibana image but ` +
-          'you didn\'t provide a kibana port.');
+    } else if (!this.c.kibana && (labels.indexOf(kibana_image_label) > -1)) {
+      const err = new Error(`container ${this.c.name} has a kibana image, ` +
+          'yet you didnt set its kibana property to true.');
       this._stop_at_task(task, err);
-    } else if (labels.indexOf(kibana_image_label) > -1) {
-      this._c.has_kibana_image = true;
     }
 
     task.end_resolve_cb();
@@ -88,16 +92,16 @@ export class ContainerCreator {
     task.start_resolve_cb();
 
     try {
-      if (this._c.volume_dir && this._c.clear_volume_dir) {
-        if (this._c.verbose) {
-          console.log(`emptying volume ${this._c.volume_dir}`);
+      if (this.c.volume_dir && this.o.clear_volume_dir) {
+        if (this.o.verbose) {
+          console.log(`emptying volume ${this.c.volume_dir}`);
         }
-        await emptyDir(this._c.volume_dir);
-      } else if (this._c.volume_dir) {
-        if (this._c.verbose) {
-          console.log(`making sure volume ${this._c.volume_dir} exists`);
+        await emptyDir(this.c.volume_dir);
+      } else if (this.c.volume_dir) {
+        if (this.o.verbose) {
+          console.log(`making sure volume ${this.c.volume_dir} exists`);
         }
-        await ensureDir(this._c.volume_dir);
+        await ensureDir(this.c.volume_dir);
       }
     } catch (err) {
       this._stop_at_task(task, err);
@@ -109,30 +113,35 @@ export class ContainerCreator {
   private async _create_container(task: FullTask) {
     task.start_resolve_cb();
 
-    const vl = this._c.volume_dir ? `-v ${this._c.volume_dir}:/usr/share/elasticsearch/data` : '';
-    const kpl = this._c.has_kibana_image ? `-p ${this._c.kibana_port}:5601` : '';
-    const el = `-e ${this._merge_env_vars().join(' -e ')}`;
+    const container = new Container(this.c);
+    const b64 = Buffer.from(JSON.stringify(container)).toString('base64');
+    const kport_line = this.c.kibana ? `-p ${this.c.kibana_port}:5601` : '';
+    const env_line = `-e ${this._merge_env_vars().join(' -e ')}`;
+    const volume_line = this.c.volume_dir ?
+        `-v ${this.c.volume_dir}:/usr/share/elasticsearch/data` : '';
 
-    const cmd = `docker create --name ${this._c.name} ${vl} -p ${this._c.port}:9200 ` +
-        `${kpl} ${el} ${this._c.image}`;
+    // override the es image label w/ the container which is b64 encoded.
+    const cmd = `docker create --name ${this.c.name} --label ${elastic_image_label}=${b64} ` +
+        `${volume_line} -p ${this.c.port}:9200 ${kport_line} ${env_line} ${this.c.image}`;
 
     try {
-      if (this._c.verbose) {
-        console.log(`creating docker container ${this._c.name}`);
+      if (this.o.verbose) {
+        console.log(`creating docker container ${this.c.name}`);
       }
       await Utils.exec(cmd);
     } catch (err) {
       this._stop_at_task(task, err);
     }
 
-    task.end_resolve_cb();
+    task.end_resolve_cb(container);
+    return container;
   }
 
   private async _get_image_labels() {
-    const cmd = `docker inspect --format "{{ .Config.Labels }}" ${this._c.image}`;
+    const cmd = `docker inspect --format "{{ .Config.Labels }}" ${this.c.image}`;
 
-    if (this._c.verbose) {
-      console.log(`fetching labels for image ${this._c.image}`);
+    if (this.o.verbose) {
+      console.log(`fetching labels for image ${this.c.image}`);
     }
 
     try {
@@ -140,28 +149,28 @@ export class ContainerCreator {
       const tmp = resp.slice(4, resp.length - 2);
       return tmp.split(' ').map(el => el.split(':')[0]);
     } catch (e) {
-      throw Error(`couldnt fetch image labels for ${this._c.image}`);
+      throw Error(`couldnt fetch image labels for ${this.c.image}`);
     }
   }
 
   private _merge_env_vars() {
     const uniq = {
-      ES_JAVA_OPTS: `-Xms${this._c.hsize}m -Xmx${this._c.hsize}m`,
-      NODE_OPTIONS: `--max-old-space-size=${this._c.khsize}`,
-      'node.data': `${!!this._c.data}`,
-      'node.ingest': `${!!this._c.ingest}`,
-      'node.master': `${!!this._c.master}`
+      ES_JAVA_OPTS: `-Xms${this.c.hsize}m -Xmx${this.c.hsize}m`,
+      NODE_OPTIONS: `--max-old-space-size=${this.c.khsize}`,
+      'node.data': `${!!this.c.data}`,
+      'node.ingest': `${!!this.c.ingest}`,
+      'node.master': `${!!this.c.master}`
     };
 
-    if (this._c.cluster_name) {
-      uniq['cluster.name'] = this._c.cluster_name;
+    if (this.c.cluster_name) {
+      uniq['cluster.name'] = this.c.cluster_name;
     }
 
-    if (this._c.node_name) {
-      uniq['node.name'] = this._c.node_name;
+    if (this.c.node_name) {
+      uniq['node.name'] = this.c.node_name;
     }
 
-    this._c.env.forEach(e => {
+    this.c.env.forEach(e => {
       const tokens = e.split('=');
       uniq[tokens[0]] = tokens.slice(1).join('=');
     });
@@ -172,13 +181,13 @@ export class ContainerCreator {
   private async _remove_container_with_my_name(task: FullTask) {
     task.start_resolve_cb();
 
-    if (this._c.verbose) {
-      console.log(`removing docker container ${this._c.name} if it exists`);
+    if (this.o.verbose) {
+      console.log(`removing docker container ${this.c.name} if it exists`);
     }
 
     try {
-      const cmd = `docker rm -f ${this._c.name}`;
-      await Utils.exec(cmd, !!this._c.verbose);
+      const cmd = `docker rm -f ${this.c.name}`;
+      await Utils.exec(cmd, this.o.verbose);
     } catch (err) {
       if (!err || err.toString().indexOf('No such container') < 0) {
         this._stop_at_task(task, err);
@@ -190,11 +199,11 @@ export class ContainerCreator {
 
   private async _start(task: FullTask) {
     task.start_resolve_cb();
-    const cmd = `docker start ${this._c.name}`;
+    const cmd = `docker start ${this.c.name}`;
 
     try {
-      if (this._c.verbose) {
-        console.log(`starting docker container ${this._c.name}`);
+      if (this.o.verbose) {
+        console.log(`starting docker container ${this.c.name}`);
       }
       await Utils.exec(cmd);
     } catch (err) {
@@ -209,130 +218,55 @@ export class ContainerCreator {
     throw err;
   }
 
-  private async _upload_scripts(task: FullTask) {
+  private async _upload_kso(task: FullTask, container: Container) {
+    await task.start_resolve_cb();
+
     let res;
-    task.start_resolve_cb();
 
-    const promises: any[] = [];
-
-    for (const script_name in this._c.scripts) {
-      const script = this._c.scripts[script_name];
-      const url = `localhost:${this._c.port}/_scripts/${script_name}`;
-      const cmd = `curl -s -XPOST "${url}" -H 'Content-Type: application/json' ` +
-          `-d '${JSON.stringify({ script: script })}'`;
-
-      if (this._c.verbose) {
-        console.log(`uploading script ${script_name} to ${url}`);
+    if (this.c.kibana) {
+      try {
+        res = await elastic_uploader.kso(container, this.o.kso, this.o.verbose);
+      } catch (e) {
+        this._stop_at_task(task, e);
       }
-
-      const p = Utils.exec(cmd, this._c.verbose).then(ans => {
-        const obj = JSON.parse(<string> ans);
-        if (obj.error) {
-          throw obj;
-        }
-        return obj;
-      });
-      promises.push(p);
-    }
-
-    try {
-      res = await Promise.all(promises);
-    } catch (err) {
-      this._stop_at_task(task, err);
     }
 
     task.end_resolve_cb(res);
   }
 
-  private async _upload_sm(task: FullTask) {
-    let res;
-    task.start_resolve_cb();
-
-    const promises: any = [];
-
-    for (const index in this._c.sm) {
-      const url = `localhost:${this._c.port}/${index}`;
-      const str = JSON.stringify(this._c.sm[index]);
-      const cmd = `curl -s -XPUT "${url}" -H 'Content-Type: application/json' -d '${str}'`;
-
-      if (this._c.verbose) {
-        console.log(`uploading settings/mappings for index ${index} to ${url}`);
-      }
-
-      const p = Utils.exec(cmd, this._c.verbose).then(ans => {
-        const obj = JSON.parse(<string> ans);
-        if (obj.error) {
-          throw obj;
-        }
-        return obj;
-      });
-      promises.push(p);
-    }
+  private async _upload_scripts(task: FullTask, container: Container) {
+    await task.start_resolve_cb();
 
     try {
-      res = await Promise.all(promises);
-    } catch (err) {
-      this._stop_at_task(task, err);
+      const res = await elastic_uploader.scripts(container, this.o.scripts, this.o.verbose);
+      task.end_resolve_cb(res);
+    } catch (e) {
+      this._stop_at_task(task, e);
     }
-
-    task.end_resolve_cb(res);
   }
 
-  private async _wait_for_elastic(task: FullTask) {
-    task.start_resolve_cb();
-    const url = `localhost:${this._c.port}/_cluster/health`;
-    const cmd = `curl -s ${url}`;
+  private async _upload_sm(task: FullTask, container: Container) {
+    await task.start_resolve_cb();
 
-    if (this._c.verbose) {
-      console.log(`waiting for state >= yellow from elastic @ ${url}`);
+    try {
+      const res = await elastic_uploader.sm(container, this.o.sm, this.o.verbose);
+      task.end_resolve_cb(res);
+    } catch (e) {
+      this._stop_at_task(task, e);
     }
+  }
 
-    await new Promise(resolve => {
-      const again = time => {
-        setTimeout(() => wait_for_elastic_helper(cmd, again, resolve), time);
-      };
-      again(0);
-    });
+  private async _wait_for_elastic(task: FullTask, container: Container) {
+    await task.start_resolve_cb();
+    await container.wait_for_elastic(this.o.verbose);
     task.end_resolve_cb();
   }
 
-  private async _wait_for_kibana(task: FullTask) {
-    task.start_resolve_cb();
-
-    if (this._c.has_kibana_image) {
-      const url = `localhost:${this._c.kibana_port}`;
-      const cmd = `curl -s -o /dev/null -w "%{http_code}" ${url}`;
-
-      if (this._c.verbose) {
-        console.log(`waiting for status 200 from kibana @ ${url}`);
-      }
-
-      await new Promise(resolve => {
-        const again = time => {
-          setTimeout(() => wait_for_kibana_helper(cmd, again, resolve), time);
-        };
-        again(0);
-      });
+  private async _wait_for_kibana(task: FullTask, container: Container) {
+    await task.start_resolve_cb();
+    if (this.c.kibana) {
+      await container.wait_for_kibana(this.o.verbose);
     }
     task.end_resolve_cb();
   }
 }
-
-const wait_for_elastic_helper = async(cmd, again, resolve) => {
-  try {
-    const res = await Utils.exec(cmd);
-    const d = JSON.parse(<string> res);
-    (d.status !== 'yellow') && (d.status !== 'green') ? again(2000) : resolve();
-  } catch (err) {
-    again(2000);
-  }
-};
-
-const wait_for_kibana_helper = async(cmd, again, resolve) => {
-  try {
-    const res = await Utils.exec(cmd);
-    res !== '200' ? again(2000) : resolve();
-  } catch (err) {
-    again(2000);
-  }
-};

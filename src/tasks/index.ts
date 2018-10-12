@@ -46,6 +46,7 @@ export interface IContainerCreateTasks {
   elastic_ready: FullTask;
   image_check: FullTask;
   kibana_ready: FullTask;
+  kso_upload: FullTask;
   main: EndTask;
   scripts_upload: FullTask;
   sm_upload: FullTask;

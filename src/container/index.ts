@@ -1,241 +1,185 @@
-import { freemem } from 'os';
-import * as path from 'path';
-import { ContainerCreator } from '../container-creator';
+import { BaseContainer, IBaseContainer } from '../base-container';
+import { elastic_image_label } from '../image';
 import { Utils } from '../utils';
 
-export interface IElasticScript {
-  lang: string;
-  source: string;
-}
+export interface IContainer extends IBaseContainer { }
 
-export interface IContainer {
-  clear_volume_dir?: boolean;
-  cluster_name?: string;
-  data?: boolean;
-  env?: string[];
-  hsize: number;
-  image: string;
-  ingest?: boolean;
-  khsize?: number;
-  kibana_port?: number;
-  master?: boolean;
-  name: string;
-  node_name?: string;
-  port: number;
-  scripts?: { [name: string]: IElasticScript };
-  sm?: object;
-  verbose?: boolean;
-  volume_dir?: string;
-}
+export class Container extends BaseContainer implements IContainer {
+  static async fetch_all(verbose?: boolean) {
+    const names_cmd = `docker ps -a --filter "label=${elastic_image_label}" ` +
+        '--format " {{ .Names }}"';
+    const containers: Container[] = [];
 
-export class Container implements IContainer {
-  clear_volume_dir: boolean;
-  cluster_name?: string;
-  data: boolean;
-  env: string[];
-  has_kibana_image?: boolean;
-  hsize: number;
-  image: string;
-  ingest: boolean;
-  khsize: number;
-  kibana_port?: number;
-  master: boolean;
-  name: string;
-  node_name?: string;
-  port: number;
-  scripts: { [name: string]: IElasticScript };
-  sm: object;
-  verbose: boolean;
-  volume_dir?: string;
-
-  constructor(v: IContainer) {
-    this._set_clear_volume_dir(v);
-    this._set_cluster_name(v);
-    this._set_data(v);
-    this._set_port(v);
-    this._set_env(v);
-    this._set_hsize(v);
-    this._set_image(v);
-    this._set_ingest(v);
-    this._set_khsize(v);
-    this._set_kibana_port(v);
-    this._set_master(v);
-    this._set_name(v);
-    this._set_node_name(v);
-    this._set_scripts(v);
-    this._set_sm(v);
-    this._set_verbose(v);
-    this._set_volume_dir(v);
-
-    if (this.kibana_port === this.port) {
-      throw Error('kibana port cant be the same as the elastic port.');
+    if (verbose) {
+      console.log(`fetching all containers this package has created via\n${names_cmd}`);
     }
-  }
 
-  create() {
-    return (new ContainerCreator(this)).create();
-  }
+    let names = <string> await Utils.exec(names_cmd);
+    names = names.split('\n').join(' ');
 
-  private _set_clear_volume_dir(v: IContainer) {
-    if (Utils.is_bool(v.clear_volume_dir)) {
-      this.clear_volume_dir = <boolean> v.clear_volume_dir;
-    } else if (Utils.is_defined(v.clear_volume_dir)) {
-      throw Error('not a boolean');
-    } else {
-      this.clear_volume_dir = false;
-    }
-  }
-
-  private _set_cluster_name(v: IContainer) {
-    if (Utils.is_string(v.cluster_name) && v.cluster_name && !/ /.test(v.cluster_name)) {
-      this.cluster_name = v.cluster_name;
-    } else if (Utils.is_defined(v.cluster_name)) {
-      throw Error('not a valid string');
-    }
-  }
-
-  private _set_data(v: IContainer) {
-    if (Utils.is_bool(v.data)) {
-      this.data = <boolean> v.data;
-    } else if (Utils.is_defined(v.data)) {
-      throw Error('not a boolean');
-    } else {
-      this.data = true;
-    }
-  }
-
-  private _set_env(v: IContainer) {
-    if (v.env) {
-      v.env.forEach(s => {
-        if (!Utils.is_string(s)) {
-          throw Error('invalid environment string');
-        } else if (s.indexOf('=') < 0) {
-          throw Error(s + ' has an invalid env format!');
-        }
+    if (names.length) {
+      const inspect_cmd = `docker inspect ${names}`;
+      const configs = JSON.parse(<string> await Utils.exec(inspect_cmd));
+      configs.forEach(config => {
+        const labels = config.Config.Labels;
+        const b64 = labels[elastic_image_label];
+        const decoded: IContainer = JSON.parse(Buffer.from(b64, 'base64').toString());
+        containers.push(new Container(decoded));
       });
     }
-    this.env = v.env ? v.env : [];
+
+    return containers;
   }
 
-  private _set_hsize(v: IContainer) {
-    if (!Utils.is_integer(v.hsize)) {
-      throw Error('es heap size not an integer');
-    } else if ((v.hsize < 100) || (v.hsize > 31000)) {
-      throw Error('es heap size out of range.');
-    } else if ((v.hsize * 1000000) >= freemem()) {
-      throw Error('requested es heap size is too large for this system.');
-    }
-    this.hsize = v.hsize;
+  constructor(v: IContainer) {
+    super(v);
   }
 
-  private _set_image(v: IContainer) {
-    if (!Utils.is_string(v.image) || !v.image || / /.test(v.image)) {
-      throw Error(`${v.image} is an invalid image name`);
+  // resolves w/ the standard elasticsearch json response for GET _cluster/health | undefined
+  async cluster_health(verbose?: boolean) {
+    if (verbose) {
+      console.log(`fetching cluster health for ${this.name}`);
     }
-    this.image = v.image;
+
+    try {
+      const cmd = 'curl -s localhost:9200/_cluster/health';
+      const res = await this.exec(cmd);
+      return JSON.parse(<string> res);
+    } catch (e) { }
   }
 
-  private _set_ingest(v: IContainer) {
-    if (Utils.is_bool(v.ingest)) {
-      this.ingest = <boolean> v.ingest;
-    } else if (Utils.is_defined(v.ingest)) {
-      throw Error('not a boolean');
-    } else {
-      this.ingest = false;
+  // resolves w/ green | yellow | red | undefined
+  async cluster_state(verbose?: boolean) {
+    if (verbose) {
+      console.log(`fetching cluster state for ${this.name}`);
     }
+
+    try {
+      return (await this.cluster_health()).status;
+    } catch (e) { }
   }
 
-  private _set_khsize(v: IContainer) {
-    const val: any = v.khsize;
-    if (Utils.is_defined(val)) {
-      if (!Utils.is_integer(val)) {
-        throw Error('kibana heap size not an integer');
-      } else if (val < 100) {
-        throw Error('kibana heap size out of range.');
-      } else if ((val * 1000000) >= freemem()) {
-        throw Error('requested kibana heap size is too large for this system.');
-      }
+  async delete(verbose?: boolean) {
+    const cmd = `docker rm -f ${this.name}`;
+
+    if (verbose) {
+      console.log(`deleting container ${this.name} via ${cmd}`);
     }
-    this.khsize = val ? val : 512;
+
+    await Utils.exec(cmd, verbose);
   }
 
-  private _set_kibana_port(v: IContainer) {
-    if (Utils.is_defined(v.kibana_port) && (!Utils.is_integer(v.kibana_port) ||
-        (<number> v.kibana_port < 1) || (<number> v.kibana_port > 65535))) {
-      throw Error(`${v.kibana_port} is an invalid kibana port`);
+  // executes the given command in the container and returns its stdout.
+  // note that the cmd is base64 encoded so we dont have to worry about special
+  // characters like $ or quotes.
+  async exec(cmd: string, verbose?: boolean) {
+    if (!Utils.is_string(cmd) || !cmd) {
+      throw Error('command missing!');
     }
-    this.kibana_port = v.kibana_port;
+
+    const b64 = Buffer.from(cmd).toString('base64');
+    const wrapped_cmd = `docker exec -i ${this.name}` +
+        ` bash -c 'eval $(echo ${b64} | base64 --decode)'`;
+
+    if (verbose) {
+      console.log(`executing the following command\n${wrapped_cmd}`);
+    }
+
+    return await Utils.exec(wrapped_cmd, verbose);
   }
 
-  private _set_master(v: IContainer) {
-    if (Utils.is_bool(v.master)) {
-      this.master = <boolean> v.master;
-    } else if (Utils.is_defined(v.master)) {
-      throw Error('not a boolean');
-    } else {
-      this.master = true;
+  async kibana_saved_objects(verbose?: boolean) {
+    if (!this.kibana) {
+      throw Error(`${this.name} isnt a kibana node!`);
     }
+
+    const cmd = 'curl localhost:5601/api/saved_objects/_find?per_page=10000';
+
+    if (verbose) {
+      console.log(`fetching kibana saved objects for ${this.name}`);
+    }
+
+    const resp = <string> await this.exec(cmd);
+    return JSON.parse(resp).saved_objects;
   }
 
-  private _set_name(v: IContainer) {
-    if (!Utils.is_string(v.name) || !v.name || / /.test(v.name)) {
-      throw Error('not a valid string');
+  // resolves w/ number | undefined
+  async kibana_status(verbose?: boolean) {
+    if (!this.kibana) {
+      return;
+    } else if (verbose) {
+      console.log(`fetching kibana status for ${this.name}`);
     }
-    this.name = v.name;
+
+    try {
+      const cmd = 'curl -s -o /dev/null -w "%{http_code}" localhost:5601';
+      const res = await this.exec(cmd);
+      return res ? Number(res) : undefined;
+    } catch (e) { }
   }
 
-  private _set_node_name(v: IContainer) {
-    if (Utils.is_string(v.node_name) && v.node_name && !/ /.test(v.node_name)) {
-      this.node_name = v.node_name;
-    } else if (Utils.is_defined(v.node_name)) {
-      throw Error('not a valid string');
-    }
+  async restart(verbose?: boolean) {
+    await this.stop(verbose);
+    await this.start(verbose);
   }
 
-  private _set_port(v: IContainer) {
-    if (!Utils.is_integer(v.port)) {
-      throw Error('not an integer');
-    } else if ((v.port < 1) || (v.port > 65535)) {
-      throw Error('port out of range.');
+  async start(verbose?: boolean) {
+    const cmd = `docker start ${this.name}`;
+
+    if (verbose) {
+      console.log(`starting container ${this.name} via ${cmd}`);
     }
-    this.port = v.port;
+
+    await Utils.exec(cmd, verbose);
   }
 
-  private _set_scripts(v: IContainer) {
-    if (Utils.is_object(v.scripts)) {
-      this.scripts = <{}> v.scripts;
-    } else if (Utils.is_defined(v.scripts)) {
-      throw Error('scripts must be an object.');
-    } else {
-      this.scripts = {};
+  async stop(verbose?: boolean) {
+    const cmd = `docker stop ${this.name}`;
+
+    if (verbose) {
+      console.log(`stopping container ${this.name} via ${cmd}`);
     }
+
+    await Utils.exec(cmd, verbose);
   }
 
-  private _set_sm(v: IContainer) {
-    if (Utils.is_object(v.sm)) {
-      this.sm = <object> v.sm;
-    } else if (Utils.is_defined(v.sm)) {
-      throw Error('settings and mappings must be an object.');
-    } else {
-      this.sm = {};
+  async wait_for_elastic(verbose?: boolean) {
+    if (verbose) {
+      console.log(`waiting for state >= yellow from elastic for ${this.name}`);
     }
+
+    await new Promise(resolve => {
+      const interval = 2000;
+
+      const again = () => {
+        setTimeout(async() => {
+          const state = await this.cluster_state(verbose);
+          /yellow|green/.test(state) ? resolve() : again();
+        }, interval);
+      };
+
+      again();
+    });
   }
 
-  private _set_verbose(v: IContainer) {
-    if (Utils.is_bool(v.verbose)) {
-      this.verbose = <boolean> v.verbose;
-    } else if (Utils.is_defined(v.verbose)) {
-      throw Error('not a boolean');
-    } else {
-      this.verbose = false;
+  async wait_for_kibana(verbose?: boolean) {
+    if (!this.kibana) {
+      throw Error(`${this.name} isnt a kibana container! You\'ll never get a 200 response.`);
+    } else if (verbose) {
+      console.log(`waiting for status 200 from kibana for ${this.name}`);
     }
-  }
 
-  private _set_volume_dir(v: IContainer) {
-    if (Utils.is_string(v.volume_dir) && v.volume_dir && !/ /.test(v.volume_dir)) {
-      this.volume_dir = path.resolve(process.cwd(), v.volume_dir);
-    } else if (Utils.is_defined(v.volume_dir)) {
-      throw Error('not a valid string');
-    }
+    await new Promise(resolve => {
+      const interval = 2000;
+
+      const again = () => {
+        setTimeout(async() => {
+          const status = await this.kibana_status(verbose);
+          status === 200 ? resolve() : again();
+        }, interval);
+      };
+
+      again();
+    });
   }
 }
