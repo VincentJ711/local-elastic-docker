@@ -379,7 +379,7 @@ The following tasks are executed in the order you see when a container is being 
 
 - `prototype.cluster_state(verbose?: boolean[false]): Promise<string | undefined>` curls inside the container on port 9200 and asks for its cluster health state. If it succeeds, it resolves with `green | yellow | red`. If it fails or gets no response, it resolves with `undefined`.
 - `prototype.kibana_status(verbose?: boolean[false]): Promise<number | undefined>` curls inside the container on port 5601 and checks the http status code. If it succeeds, it resolves with a number (like 200). If it fails or gets no response, it resolves with `undefined`.
-- `.prototype.kibana_saved_objects(verbose?: boolean[false]): []` curls inside the container @ `:5601/api/saved_objects/_find` and returns the saved_objects array. will throw if this isn't a Kibana container. I believe this api endpoint was added in 6.4, so don't call this if your image was for an es version < 6.4. (see [here](https://www.elastic.co/guide/en/kibana/master/saved-objects-api.html))
+- `prototype.kibana_saved_objects(verbose?: boolean[false]): Promise<[]>` curls inside the container on port 5601 @ `/api/saved_objects/_find` and returns the saved_objects array. will throw if this isn't a Kibana container. I believe this api endpoint was added in 6.4, so don't call this if your image was for an es version < 6.4. (see [here](https://www.elastic.co/guide/en/kibana/master/saved-objects-api.html))
 
 ### helpers
 - `ls_containers(fmt?: string): Promise` prints the containers made by this package. you can pass in your own docker format string to override the default. see [here](https://docs.docker.com/engine/reference/commandline/ps/#formatting)
