@@ -2,6 +2,10 @@ import { elastic_image_label } from '../image';
 import { Utils } from '../utils';
 
 export const helpers = {
+  kill_containers: async(verbose?: boolean) => {
+    const cmd = `docker kill $(docker ps -a --filter label=${elastic_image_label} -q)`;
+    await helper(cmd, verbose, `stopping containers w/ image label ${elastic_image_label}`);
+  },
   ls_containers: async(fmt?: string) => {
     fmt = fmt ? `"${fmt}"` : '"table {{.Names}}\t{{.Status}}\t{{.RunningFor}}\t{{.Image}}"';
     const cmd = `docker ps -a --filter label=${elastic_image_label} -q --format ${fmt}`;
@@ -66,7 +70,8 @@ const helper = async(cmd, verbose, msg) => {
     }
     await Utils.exec(cmd, verbose);
   } catch (err) {
-    if (!err || err.toString().indexOf('requires at least 1') < 0) {
+    if (!err || (err.toString().indexOf('requires at least 1') < 0) &&
+        (err.toString().indexOf('is not running') < 0)) {
       throw err;
     }
   }

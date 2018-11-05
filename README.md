@@ -400,9 +400,11 @@ The following tasks are executed in the order you see when a container is being 
 
 - `remove_images(verbose?: boolean[false]): Promise` removes all images this package has made.
 
-- `start_containers(verbose?: boolean[false]): Promise` starts all containers this package has made.
+- `start_containers(verbose?: boolean[false]): Promise` starts all containers this package has made using `docker start`.
 
-- `stop_containers(verbose?: boolean[false]): Promise` stops all containers this package has made.
+- `stop_containers(verbose?: boolean[false]): Promise` stops all containers this package has made using `docker stop`.
+
+- `kill_containers(verbose?: boolean[false]): Promise` kills all containers this package has made using `docker kill`.
 
 ## supported versions of Elasticsearch/Kibana
 Currently, 5.x and 6.x should work. The only part I have to keep up to date are the supported Docker environment variables for Elasticsearch/Kibana. These seem to be updated for each major/minor version.
