@@ -7,12 +7,11 @@
     "tsc": "rm -rf tsc-out && tsc --outDir tsc-out && rm -rf tsc-out",
     "lint": "tslint -p tsconfig.json",
     "flatten": "rm -rf dist && gulp flatten -c",
-    "prepublish": "npm run main"
+    "prepublishOnly": "npm run main"
   },
   "keywords": [
     "Docker",
     "Elasticsearch",
-    "Google Compute Engine",
     "Kibana"
   ],
   "author": "Vincent S",
