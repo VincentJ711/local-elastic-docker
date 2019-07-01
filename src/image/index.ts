@@ -88,6 +88,8 @@ export class Image implements IImage {
       this._kibana_entry = 'kentry-5_x';
     } else if (this.es_version[0] === '6') {
       this._kibana_entry = 'kentry-6_x';
+    } else if (this.es_version[0] === '7') {
+      this._kibana_entry = 'kentry-7_x';
     } else {
       throw Error(`kibana ${this.es_version} not supported! ` +
           'a startup script still has to be added for this major version.');

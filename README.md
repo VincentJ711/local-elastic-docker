@@ -407,7 +407,9 @@ The following tasks are executed in the order you see when a container is being 
 - `kill_containers(verbose?: boolean[false]): Promise` kills all containers this package has made using `docker kill`.
 
 ## supported versions of Elasticsearch/Kibana
-Currently, 5.x and 6.x should work. The only part I have to keep up to date are the supported Docker environment variables for Elasticsearch/Kibana. These seem to be updated for each major/minor version.
+Currently, 5.x, 6.x, 7.x should work. The only part I have to keep up to date are the supported Docker environment variables for Elasticsearch/Kibana. These seem to be updated for each major/minor version.
+
+- see https://github.com/elastic/dockerfiles/blob/v7.2.0/kibana/bin/kibana-docker (modify the git tag etc...)
 
 ## additional notes
 - if you're new to Docker, make sure you stop or delete the containers this package creates when you're not using them. You don't want these containers eating up your ram/cpu. To do this, execute a `docker ps -a` and get the container names you created and then `docker stop <name1> <name2>` or `docker rm -f <name1> <name2>` or you can just use the appropriate method on `led.helpers`.
