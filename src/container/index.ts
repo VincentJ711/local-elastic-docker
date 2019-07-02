@@ -112,7 +112,7 @@ export class Container extends BaseContainer implements IContainer {
     }
 
     try {
-      const cmd = 'curl -s -o /dev/null -w "%{http_code}" localhost:5601';
+      const cmd = 'curl -s -o /dev/null -w "%{http_code}" localhost:5601/status';
       const res = await this.exec(cmd);
       return res ? Number(res) : undefined;
     } catch (e) { }
