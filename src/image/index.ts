@@ -42,6 +42,8 @@ export class Image implements IImage {
   }
 
   private _create_dockerfile() {
+    const allowroot = this.es_version[0] === '7' ? '--allow-root' : '';
+    
     if (!this.kibana) {
       this._dockerfile =
           `FROM docker.elastic.co/elasticsearch/elasticsearch:${this.es_version}\n` +
@@ -65,7 +67,7 @@ export class Image implements IImage {
           'RUN yum install jq -y\n' +
           'WORKDIR /usr/share\n' +
           'CMD /usr/local/bin/docker-entrypoint.sh eswrapper & ' +
-              '/usr/local/bin/kentry.sh --server.host=0.0.0.0';
+              `/usr/local/bin/kentry.sh --server.host=0.0.0.0 ${allowroot}`;
     }
   }
 
@@ -88,6 +90,8 @@ export class Image implements IImage {
       this._kibana_entry = 'kentry-5_x';
     } else if (this.es_version[0] === '6') {
       this._kibana_entry = 'kentry-6_x';
+    } else if (this.es_version[0] === '7') {
+      this._kibana_entry = 'kentry-7_x';
     } else {
       throw Error(`kibana ${this.es_version} not supported! ` +
           'a startup script still has to be added for this major version.');
