@@ -4,15 +4,13 @@ import { Utils } from '../utils';
 
 export interface IBaseContainer {
   cluster_name?: string;
-  data?: boolean;
   env?: string[];
+  es_version: string;
   hsize: number;
   image: string;
-  ingest?: boolean;
   khsize?: number;
   kibana?: boolean;
   kibana_port?: number;
-  master?: boolean;
   name: string;
   node_name?: string;
   port: number;
@@ -21,15 +19,13 @@ export interface IBaseContainer {
 
 export class BaseContainer implements IBaseContainer {
   cluster_name?: string;
-  data: boolean;
   env: string[];
+  es_version: string;
   hsize: number;
   image: string;
-  ingest: boolean;
   khsize: number;
   kibana: boolean;
   kibana_port?: number;
-  master: boolean;
   name: string;
   node_name?: string;
   port: number;
@@ -37,15 +33,13 @@ export class BaseContainer implements IBaseContainer {
 
   constructor(v: IBaseContainer) {
     this._set_cluster_name(v);
-    this._set_data(v);
     this._set_env(v);
+    this._set_es_version(v);
     this._set_hsize(v);
     this._set_image(v);
-    this._set_ingest(v);
     this._set_khsize(v);
     this._set_kibana(v);
     this._set_kibana_port(v);
-    this._set_master(v);
     this._set_name(v);
     this._set_node_name(v);
     this._set_port(v);
@@ -67,16 +61,6 @@ export class BaseContainer implements IBaseContainer {
     }
   }
 
-  private _set_data(v: IBaseContainer) {
-    if (Utils.is_bool(v.data)) {
-      this.data = <boolean> v.data;
-    } else if (Utils.is_defined(v.data)) {
-      throw Error('not a boolean');
-    } else {
-      this.data = true;
-    }
-  }
-
   private _set_env(v: IBaseContainer) {
     if (v.env) {
       v.env.forEach(s => {
@@ -88,6 +72,13 @@ export class BaseContainer implements IBaseContainer {
       });
     }
     this.env = v.env ? v.env : [];
+  }
+
+  private _set_es_version(v: IBaseContainer) {
+    if (!/\d+.\d+.\d+/.test(v.es_version)) {
+      throw Error(`${v} is an invalid version.`);
+    }
+    this.es_version = v.es_version;
   }
 
   private _set_hsize(v: IBaseContainer) {
@@ -106,16 +97,6 @@ export class BaseContainer implements IBaseContainer {
       throw Error(`${v.image} is an invalid image name`);
     }
     this.image = v.image;
-  }
-
-  private _set_ingest(v: IBaseContainer) {
-    if (Utils.is_bool(v.ingest)) {
-      this.ingest = <boolean> v.ingest;
-    } else if (Utils.is_defined(v.ingest)) {
-      throw Error('not a boolean');
-    } else {
-      this.ingest = false;
-    }
   }
 
   private _set_khsize(v: IBaseContainer) {
@@ -148,16 +129,6 @@ export class BaseContainer implements IBaseContainer {
       throw Error(`${v.kibana_port} is an invalid kibana port`);
     } else if (v.kibana_port) {
       this.kibana_port = v.kibana_port;
-    }
-  }
-
-  private _set_master(v: IBaseContainer) {
-    if (Utils.is_bool(v.master)) {
-      this.master = <boolean> v.master;
-    } else if (Utils.is_defined(v.master)) {
-      throw Error('not a boolean');
-    } else {
-      this.master = true;
     }
   }
 
