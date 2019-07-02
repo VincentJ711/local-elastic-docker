@@ -10,7 +10,14 @@ const elastic_uploader = {
     }
 
     // api doesnt allow the updated_at field to exist when creating a saved object.
-    kso.forEach(el => delete el.updated_at);
+    // also seems to complain if version is specified.
+    kso.forEach(el => {
+      delete el.updated_at;
+      delete el.version;
+      if (el.attributes) {
+        delete el.attributes.version;
+      }
+    });
 
     const b64 = Buffer.from(JSON.stringify(kso)).toString('base64');
     const port = container.kibana_port;
