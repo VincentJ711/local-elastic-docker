@@ -43,7 +43,7 @@ export class Image implements IImage {
 
   private _create_dockerfile() {
     const allowroot = this.es_version[0] === '7' ? '--allow-root' : '';
-    
+
     if (!this.kibana) {
       this._dockerfile =
           `FROM docker.elastic.co/elasticsearch/elasticsearch:${this.es_version}\n` +
@@ -86,9 +86,7 @@ export class Image implements IImage {
   }
 
   private _set_kibana_entry_file() {
-    if (this.es_version[0] === '5') {
-      this._kibana_entry = 'kentry-5_x';
-    } else if (this.es_version[0] === '6') {
+    if (this.es_version[0] === '6') {
       this._kibana_entry = 'kentry-6_x';
     } else if (this.es_version[0] === '7') {
       this._kibana_entry = 'kentry-7_x';
