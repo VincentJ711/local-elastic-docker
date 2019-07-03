@@ -75,26 +75,38 @@ const create_kibana_container = async image_name => {
 
   const tasks = container.create({
     verbose: true,
-    kso: [{
-      attributes: {
-        description: '',
-        kibanaSavedObjectMeta: {
-          searchSourceJSON: '{"query":{"query":"","language":"kuery"},"filter":[]}'
+    kso: [
+      {
+        type: "visualization",
+        id: "99526ac0-9cc0-11e9-b6a0-2f4b9d6c6ed7",
+        attributes: {
+          description: "",
+          kibanaSavedObjectMeta: {
+            searchSourceJSON: "{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"filter\":[]}"
+          },
+          title: "sumting",
+          uiStateJSON: "{}",
+          visState: "{\"title\":\"sumting\",\"type\":\"timelion\",\"params\":{\"expression\":\".es(*)\",\"interval\":\"auto\"},\"aggs\":[]}"
         },
-        title: 'sumting',
-        uiStateJSON: '{}',
-        version: 1,
-        visState: '{"title":"sumting","type":"timelion","params":{"expression":".es(*)","interval":"auto"},"aggs":[]}'
+        references: [],
+        migrationVersion: {
+          visualization: "7.2.0"
+        },
+        updated_at: "2019-07-02T22:56:10.824Z",
+        version: "WzMsMV0="
       },
-      id: '99526ac0-9cc0-11e9-b6a0-2f4b9d6c6ed7',
-      migrationVersion: {
-        visualization: '7.2.0'
-      },
-      references: [],
-      type: 'visualization',
-      updated_at: '2019-07-02T11:57:43.147Z',
-      version: 'WzEzLDFd'
-    }],
+      {
+        type: "config",
+        id: "7.2.0",
+        attributes: {
+          buildNum: 24337,
+          "theme:darkMode": true
+        },
+        references: [],
+        updated_at: "2019-07-02T23:48:08.636Z",
+        version: "WzQsMV0="
+      }
+    ],
     scripts: {
       calc_score: {
         lang: 'painless',
