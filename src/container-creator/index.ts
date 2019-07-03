@@ -157,9 +157,9 @@ export class ContainerCreator {
     const uniq = {
       ES_JAVA_OPTS: `-Xms${this.c.hsize}m -Xmx${this.c.hsize}m`,
       NODE_OPTIONS: `--max-old-space-size=${this.c.khsize}`,
-      'node.data': `${!!this.c.data}`,
-      'node.ingest': `${!!this.c.ingest}`,
-      'node.master': `${!!this.c.master}`
+      'node.data': 'true',
+      'node.ingest': 'true',
+      'node.master': 'true'
     };
 
     if (this.c.cluster_name) {

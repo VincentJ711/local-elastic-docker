@@ -1,15 +1,16 @@
 const led = require('local-elastic-docker');
+const es_version = '6.4.0';
 
 const create_elastic_image = async image_name => {
   await (new led.Image({
-    es_version: '6.4.2',
+    es_version,
     name: image_name
   })).create(true);
 };
 
 const create_kibana_image = async image_name => {
   await (new led.Image({
-    es_version: '6.4.2',
+    es_version,
     kibana: true,
     name: image_name
   })).create(true);
@@ -17,6 +18,7 @@ const create_kibana_image = async image_name => {
 
 const create_elastic_container = async image_name => {
   const child_container = new led.ChildContainer({
+    es_version,
     hsize: 500,
     image: image_name,
     name: `${image_name}-1`,
@@ -51,10 +53,10 @@ const create_elastic_container = async image_name => {
 
 const create_kibana_container = async image_name => {
   const container = new led.ChildContainer({
+    es_version,
     cluster_name: 'kibana_cluster',
     hsize: 500,
     image: image_name,
-    ingest: true, // required for xpack monitoring.
     kibana: true,
     kibana_port: 6001,
     name: `${image_name}-1`,
