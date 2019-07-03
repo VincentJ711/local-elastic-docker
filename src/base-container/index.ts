@@ -53,6 +53,10 @@ export class BaseContainer implements IBaseContainer {
     }
   }
 
+  protected _get_major_version() {
+    return Number(this.es_version.split('.')[0]);
+  }
+
   private _set_cluster_name(v: IBaseContainer) {
     if (Utils.is_string(v.cluster_name) && v.cluster_name && !/ /.test(v.cluster_name)) {
       this.cluster_name = v.cluster_name;

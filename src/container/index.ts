@@ -88,19 +88,41 @@ export class Container extends BaseContainer implements IContainer {
     return await Utils.exec(wrapped_cmd, verbose);
   }
 
-  async kibana_saved_objects(verbose?: boolean) {
+  async kibana_saved_objects(verbose?: boolean): Promise<object[]> {
     if (!this.kibana) {
       throw Error(`${this.name} isnt a kibana node!`);
     }
 
-    const cmd = 'curl localhost:5601/api/saved_objects/_find?per_page=10000';
+    const major = this._get_major_version();
 
     if (verbose) {
       console.log(`fetching kibana saved objects for ${this.name}`);
     }
 
-    const resp = <string> await this.exec(cmd);
-    return JSON.parse(resp).saved_objects;
+    if (major === 6) {
+      const cmd = 'curl -X GET "localhost:5601/api/saved_objects/_find?per_page=10000"';
+      const resp = <string> await this.exec(cmd);
+      return JSON.parse(resp).saved_objects;
+    } else if (major === 7) {
+      const types = [
+        'config',
+        'map',
+        'canvas-workpad',
+        'canvas-element',
+        'index-pattern',
+        'visualization',
+        'search',
+        'dashboard',
+        'url'
+      ];
+      const cmd = 'curl -X GET "localhost:5601/api/saved_objects/_find?per_page=10000&' +
+          types.map(t => `type=${t}`).join('&') + '"';
+
+      const resp = <string> await this.exec(cmd);
+      return JSON.parse(resp).saved_objects;
+    } else {
+      throw Error('havent added support for es major version ' + major);
+    }
   }
 
   // resolves w/ number | undefined
