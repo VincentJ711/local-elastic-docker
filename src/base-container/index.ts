@@ -88,10 +88,6 @@ export class BaseContainer implements IBaseContainer {
   private _set_hsize(v: IBaseContainer) {
     if (!Utils.is_integer(v.hsize)) {
       throw Error('es heap size not an integer');
-    } else if ((v.hsize < 100) || (v.hsize > 31000)) {
-      throw Error('es heap size out of range.');
-    } else if ((v.hsize * 1000000) >= freemem()) {
-      throw Error('requested es heap size is too large for this system.');
     }
     this.hsize = v.hsize;
   }

@@ -1,6 +1,6 @@
 {
   "name": "local-elastic-docker",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "main": "dist/src/entry",
   "scripts": {
     "main": "npm run tsc && npm run lint && npm run flatten",
